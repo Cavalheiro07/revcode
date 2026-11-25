@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: revcode
+      POSTGRES_PASSWORD: revcode
+      POSTGRES_DB: revcode
+    ports:
+      - '${DB_PORT:-55432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U revcode -d revcode']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://revcode:revcode@db:5432/revcode
+    ports:
+      - '3333:3333'
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
