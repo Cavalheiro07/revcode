@@ -1,0 +1,138 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// Mesmas chaves do gabarito do dataset 3.
+enum Category {
+  nome_generico
+  comentario_ruim
+  codigo_morto
+  condicional_confusa
+  magic_values
+  retorno_inconsistente
+  efeito_colateral
+  erro_vago
+  duplicacao
+  multiplas_responsabilidades
+}
+
+enum ChallengeFormat {
+  FUNCAO
+  SCRIPT
+  CLASSE
+}
+
+enum ChallengeStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ChallengeOrigin {
+  SEED
+  MANUAL
+  IA
+}
+
+enum MarkResult {
+  HIT
+  WRONG
+}
+
+model User {
+  id           String       @id @default(cuid())
+  name         String
+  email        String       @unique
+  passwordHash String
+  role         Role         @default(USER)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  submissions  Submission[]
+}
+
+model Challenge {
+  id          String           @id @default(cuid())
+  title       String
+  context     String
+  format      ChallengeFormat
+  difficulty  Int
+  fileName    String
+  code        String
+  cleanCode   String
+  status      ChallengeStatus  @default(DRAFT)
+  origin      ChallengeOrigin  @default(MANUAL)
+  source      String?
+  sourceId    String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  answers     ChallengeAnswer[]
+  dailies     DailyChallenge[]
+  submissions Submission[]
+
+  @@index([status, createdAt])
+}
+
+// Um item do gabarito: uma linha com um problema.
+model ChallengeAnswer {
+  id          String    @id @default(cuid())
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  line        Int
+  category    Category
+  rule        String
+  explanation String
+
+  @@unique([challengeId, line])
+}
+
+model DailyChallenge {
+  id          String    @id @default(cuid())
+  date        DateTime  @db.Date
+  position    Int
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Restrict)
+
+  @@unique([date, position])
+  @@unique([date, challengeId])
+}
+
+model Submission {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challengeId String
+  challenge   Challenge        @relation(fields: [challengeId], references: [id], onDelete: Restrict)
+  date        DateTime         @db.Date
+  hits        Int
+  wrong       Int
+  missed      Int
+  total       Int
+  points      Int
+  createdAt   DateTime         @default(now())
+  marks       SubmissionMark[]
+
+  @@unique([userId, challengeId])
+  @@index([userId, date])
+}
+
+model SubmissionMark {
+  id           String     @id @default(cuid())
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  line         Int
+  category     Category
+  result       MarkResult
+
+  @@unique([submissionId, line])
+}
